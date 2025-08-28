@@ -1,7 +1,7 @@
 {
     "card_sizes": {
         "standard": {
-            "width": 20,
+            "width": 743,
             "height": 1038
         },
         "standard_double": {
@@ -39,39 +39,9 @@
         "domino_square": {
             "width": 524,
             "height": 524
-        },
-        "letter": {
-            "width": null,
-            "height": null
-        },
-        "tabloid": {
-            "width": null,
-            "height": null
-        },
-        "a4": {
-            "width": null,
-            "height": null
-        },
-        "a3": {
-            "width": null,
-            "height": null
-        },
-        "archb": {
-            "width": null,
-            "height": null
         }
     },
     "paper_layouts": {
-        "standard": null,
-        "standard_double": null,
-        "japanese": null,
-        "poker": null,
-        "poker_half": null,
-        "bridge": null,
-        "bridge_square": null,
-        "tarot": null,
-        "domino": null,
-        "domino_square": null,
         "letter": {
             "width": 3300,
             "height": 2550,
@@ -313,7 +283,7 @@
                     ],
                     "template": "a4_standard_v3"
                 },
-                "standard_double": {
+                    "standard_double": {
                     "x_pos": [
                         259,
                         1762
