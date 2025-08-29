@@ -14,7 +14,6 @@ from pydantic import BaseModel
 
 # Specify directory locations
 asset_directory = 'assets'
-
 layouts_filename = 'layouts.json'
 layouts_path = os.path.join(asset_directory, layouts_filename)
 
@@ -54,6 +53,10 @@ class PaperLayout(BaseModel):
 class Layouts(BaseModel):
     card_sizes: Dict[CardSize, CardLayoutSize]
     paper_layouts: Dict[PaperSize, PaperLayout]
+    
+class OffsetData(BaseModel):
+    x_offset: int
+    y_offset: int
 
 # Known junk files across OSes
 EXTRANEOUS_FILES = {
@@ -607,10 +610,6 @@ def generate_pdf(
                 pages[0].save(output_path, format='PDF', save_all=True, append_images=pages[1:], resolution=math.floor(300 * ppi_ratio), speed=0, subsampling=0, quality=quality)
                 print(f'Generated PDF: {output_path}')
 
-class OffsetData(BaseModel):
-    x_offset: int
-    y_offset: int
-
 def save_offset(x_offset, y_offset) -> None:
     # Create the directory if it doesn't exist
     os.makedirs('data', exist_ok=True)
@@ -620,6 +619,21 @@ def save_offset(x_offset, y_offset) -> None:
         offset_file.write(OffsetData(x_offset=x_offset, y_offset=y_offset).model_dump_json(indent=4))
 
     print('Offset data saved!')
+
+def load_user_prefs():
+    if os.path.exists('/userprefs.json'):
+        with open('/userprefs.json', 'r') as userpref_file:
+            try:
+                data = json.load(userpref_file)
+                return data
+
+            except json.JSONDecodeError as e:
+                print(f'Cannot decode user preferences JSON: {e}')
+
+            except ValidationErr as e:
+                print(f'Cannot validate user preferences data: {e}.')
+
+    return None
 
 def load_saved_offset() -> OffsetData:
     if os.path.exists('data/offset_data.json'):

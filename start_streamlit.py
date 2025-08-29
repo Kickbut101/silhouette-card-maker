@@ -3,11 +3,27 @@ import inspect
 import json
 import pandas as pd
 import streamlit as st
+import re
+import operator
+import os
 
-from streamlit_extras.pdf_viewer import (pdf_viewer)  # https://arnaudmiribel.github.io/streamlit-extras/extras/pdf_viewer/
-from streamlit_option_menu import (option_menu)  # https://github.com/victoryhb/streamlit-option-menu
+from streamlit_extras.pdf_viewer import (
+    pdf_viewer,
+)  # https://arnaudmiribel.github.io/streamlit-extras/extras/pdf_viewer/
+from streamlit_option_menu import (
+    option_menu,
+)  # https://github.com/victoryhb/streamlit-option-menu
 
-from create_pdf import generate_pdf
+import click
+from utilities import (
+    load_saved_offset,
+    offset_images,
+    save_offset,
+    load_user_prefs,
+    CardSize,
+    PaperSize,
+)
+from create_pdf import generate_pdf, cli
 
 
 st.set_page_config(
@@ -23,42 +39,45 @@ st.set_page_config(
 
 LAYOUTS_JSON_PATH = "./assets/layouts.json"
 OFFSET_JSON_PATH = "./calibration/data/offset_data.json"
-json_dirty = {
-    "layouts": False,
-    "offset_data": False,
-}
+USERPREFS_JSON_PATH = "./userprefs.json"
 
-def get_function_params_defaults(func):
-    """
-    Returns a dict of parameter names and their default values for a function.
-    If no default, value is None.
-    """
-    sig = inspect.signature(func)
-    params = {}
-    for name, param in sig.parameters.items():
-        if param.default is inspect.Parameter.empty:
-            params[name] = None
-        else:
-            params[name] = param.default
-    return params
+# json_dirty = {
+#    "layouts": False,
+#    "offset_data": False,
+# }
 
-def dynamic_class_from_func(func):
-    """
-    Returns a class with __init__ that sets attributes for each parameter in func.
-    """
-    params = get_function_params_defaults(func)
-    class DynamicSettings:
-        def __init__(self, **kwargs):
-            for key, default in params.items():
-                setattr(self, key, kwargs.get(key, default))
-    return DynamicSettings
+# def get_function_params_defaults(func):
+#    """
+#    Returns a dict of parameter names and their default values for a function.
+#    If no default, value is None.
+#    """
+#    sig = inspect.signature(func)
+#    params = {}
+#    for name, param in sig.parameters.items():
+#        if param.default is inspect.Parameter.empty:
+#            params[name] = None
+#        else:
+#            params[name] = param.default
+#    return params
 
-CreatePDFSettings = dynamic_class_from_func(generate_pdf)
-settings = CreatePDFSettings(card_size="standard", output_path="output.pdf")
-print(settings.card_size)  # "standard"
-print(settings.output_path)  # "output.pdf"
+# def dynamic_class_from_func(func):
+#    """
+#    Returns a class with __init__ that sets attributes for each parameter in func.
+#    """
+#    params = get_function_params_defaults(func)
+#    class DynamicSettings:
+#        def __init__(self, **kwargs):
+#            for key, default in params.items():
+#                setattr(self, key, kwargs.get(key, default))
+#    return DynamicSettings
 
-def manage_json_file(json_path: str, section = None, edits = None):
+# CreatePDFSettings = dynamic_class_from_func(generate_pdf)
+# settings = CreatePDFSettings(card_size="standard", output_path="output.pdf")
+# print(settings.card_size)  # "standard"
+# print(settings.output_path)  # "output.pdf"
+
+
+def manage_json_file(json_path: str, section=None, edits=None):
     """
     Reads or writes edits to a section of layouts.json.
     If edits is None, returns the section.
@@ -66,26 +85,27 @@ def manage_json_file(json_path: str, section = None, edits = None):
     """
     with open(json_path, "r", encoding="utf8") as f:
         data = json.load(f)
-        
+
     if edits is None:
         if section is None:
             return data
         # Just read and return the section
         return data.get(section, None)
-    
-    #elif any(json_dirty.values()):
+
+    # elif any(json_dirty.values()):
     else:
         # Update the section and write back
         if section is None:
             data = edits
         else:
             data[section] = edits
-            
+
         with open(json_path, "w", encoding="utf8") as f:
             json.dump(data, f, indent=4)
-        reload_layouts()
+        reload_jsons()
 
-def reload_layouts():
+
+def reload_jsons():
     layouts_json = manage_json_file(LAYOUTS_JSON_PATH)
     offsets_json = manage_json_file(OFFSET_JSON_PATH)
     if layouts_json is not None:
@@ -96,18 +116,42 @@ def reload_layouts():
         st.session_state.offset_data = offsets_json
 
 
+def get_click_command_options(click_command):
+    """
+    Returns a list of dicts with parameter names and their default values from a click command.
+    """
+    options = []
+    for param in click_command.params:
+        if isinstance(param, click.Option):
+            options.append(
+                {
+                    "name": param.name,
+                    "default": param.default,
+                    "help": param.help,
+                    "is_flag": param.is_flag,
+                    "type": param.type,
+                    "show_default": param.show_default,
+                    "value": param.default,
+                    "required": param.required,
+                }
+            )
+    return options
+
+
 def on_tab_change(key):
     print(f"{key}")
-    #st.session_state[key] = selected_tab
-    #if key
+    # st.session_state[key] = selected_tab
+    # if key
+
 
 st.markdown("# Silhouette Card Maker")
-if (('df' not in st.session_state) or 
-    ('card_sizes_from_layouts' not in st.session_state) or 
-    ('paper_layouts_from_layouts' not in st.session_state) or
-    ('offset_data' not in st.session_state)
+if (
+    ("df" not in st.session_state)
+    or ("card_sizes_from_layouts" not in st.session_state)
+    or ("paper_layouts_from_layouts" not in st.session_state)
+    or ("offset_data" not in st.session_state)
 ):
-    reload_layouts()
+    reload_jsons()
 
 selected_tab = option_menu(
     None,
@@ -120,54 +164,167 @@ selected_tab = option_menu(
 )
 
 if selected_tab == "Generate PDFs":
+    create_pdf_options = get_click_command_options(cli)
+
     gen_pdf_expander = st.expander("Generate PDFs", expanded=False)
     gen_pdf_form = gen_pdf_expander.form(key="gen_pdf_form")
-    gen_pdf_form.write("NERDD")
+
+    card_size = gen_pdf_form.pills("Card Size", [c.name for c in CardSize])
+    paper_size = gen_pdf_form.pills("Paper Size", [p.name for p in PaperSize])
+
+    gpcol1, gpcol2, gpcol3 = gen_pdf_form.columns([1, 2, 2])
+
+    # gen_pdf_form.write(list(map(operator.itemgetter("type"), create_pdf_options)))
+
+    for opt in create_pdf_options:
+        opt
+
+        #click.Parameter
+        if isinstance(opt["type"], click.types.StringParamType):
+            if opt["show_default"] is True:
+                if re.search(r"directory|path", opt["help"]):
+                    opt["value"] = gpcol1.text_input(
+                        label=opt["help"],
+                        value=str(f"{'.\\'}{opt['value']}"),
+                        placeholder=str(f"{'.\\'}{opt['default']}"),
+                        key=opt["name"],
+                    )
+                else:
+                    opt["value"] = gpcol1.text_input(
+                        label=opt["help"],
+                        value=opt["value"],
+                        placeholder=opt["default"],
+                        key=opt["name"],
+                    )
+
+        # elif isinstance({opt['type']}, click.types.IntParamType):
+        #    gpcol2.write("found a int")
+        #    opt['value'] = gpcol2.number_input(
+        #        value=opt['value'],
+        #        label=opt['help'],
+        #        key=opt['name'],
+        #    )
+
+        elif isinstance(opt["type"], click.types.IntParamType):
+            opt["value"] = gpcol2.number_input(
+                label=opt["help"],
+                value=opt["value"],
+                key=opt["name"],
+            )
+        elif isinstance(opt["type"], bool):
+            if opt["is_flag"]:
+                gpcol2.write("found flag")
+                opt["value"] = gpcol2.toggle(
+                    label=opt["help"], value=opt["value"], key=opt["name"]
+                )
+        #   else:
+        #       gpcol2.write("found a range")
+        #       opt['value'] = gpcol2.number_input(
+        #           label=opt['help'],
+        #           min_value= 0,
+        #           max_value= 10,
+        #           value=opt['value'],
+        #           key=opt['name'],
+        #       )
+        else:
+            gpcol3.write("catchall")
+
     gen_pdf_form.form_submit_button("WOW")
-        
-    
+    # opt['value'] = gpcol2.number_input(
+    #    label=opt['help'],
+    #    min_value= 0,
+    #    max_value= 10,
+    #    value=opt['value'],
+    #    key=opt['name'],
+    # )
+
+    # card_front_dir = gpcol1.text_input(
+    #    "Card Front Directory (Relative)",
+    #    key="cardfrontdirectory",
+    # )
+    # card_back_dir = gpcol1.text_input(
+    #    "Card Back Directory (Relative)",
+    #    value=LAYOUTS_JSON_PATH,
+    #    placeholder=LAYOUTS_JSON_PATH,
+    #    key="cardbackdirectory",
+    # )
+    # gpcol1_expander = gpcol1.expander("Double Sided Path", expanded=False)
+
+    # double_side_dir = gpcol1_expander.text_input(
+    #    "Double Sided Card Directory (Relative)",
+    #    key="dblsidedirectory",
+    # )
+
+    # output_path_expander = gpcol2.expander("Output Paths", expanded=False)
+#
+# output_path_dir = output_path_expander.text_input(
+#     "Card Output Directory (Relative)",
+#     key="cardoutputdirectory",
+# )
+
+# extra_options_expander = gpcol3.expander("Extra Options", expanded=False)
+
+
 elif selected_tab == "Offsets":
     st.write("You're a fucking loser")
 elif selected_tab == "Settings":
     st.write("You're a fucking loser")
 elif selected_tab == "Edit JSON Files":
     st.markdown("## Card Size Definitions")
-    
+
     card_size_editor = st.expander("Show/Edit", icon=":material/info:")
     card_size_data = unedited_card_data = st.session_state.card_sizes_from_layouts
-    edited_card_sizes = card_size_editor.data_editor(
-            card_size_data,
-            num_rows="fixed"
-        )
-    card_size_data = ''
+    edited_card_sizes = card_size_editor.data_editor(card_size_data, num_rows="fixed")
+    card_size_data = ""
     col1, col2 = card_size_editor.columns(2)
-    col1.button('Save', key="cscol1", on_click=manage_json_file, args=(LAYOUTS_JSON_PATH, "card_sizes", edited_card_sizes))
-    col2.button('Undo Changes', key="cscol2", on_click=manage_json_file, args=(LAYOUTS_JSON_PATH, "card_sizes", unedited_card_data))
-    
+    col1.button(
+        "Save",
+        key="cscol1",
+        on_click=manage_json_file,
+        args=(LAYOUTS_JSON_PATH, "card_sizes", edited_card_sizes),
+    )
+    col2.button(
+        "Undo Changes",
+        key="cscol2",
+        on_click=manage_json_file,
+        args=(LAYOUTS_JSON_PATH, "card_sizes", unedited_card_data),
+    )
+
     st.markdown("## Offset Data")
-    
+
     offset_expander = st.expander("Show/Edit", icon=":material/info:")
     offset_data = unedited_offset_data = st.session_state.offset_data
-    edited_offset_data = offset_expander.data_editor(
-            offset_data,
-            num_rows="fixed"
-        )
-    offset_data = ''
+    edited_offset_data = offset_expander.data_editor(offset_data, num_rows="fixed")
+    offset_data = ""
     col1, col2 = offset_expander.columns(2)
-    col1.button('Save', key="oscol1", on_click=manage_json_file, args=(OFFSET_JSON_PATH, None, edited_offset_data))
-    col2.button('Undo Changes', key="oscol2", on_click=manage_json_file, args=(OFFSET_JSON_PATH, None, unedited_offset_data))
-    
+    col1.button(
+        "Save",
+        key="oscol1",
+        on_click=manage_json_file,
+        args=(OFFSET_JSON_PATH, None, edited_offset_data),
+    )
+    col2.button(
+        "Undo Changes",
+        key="oscol2",
+        on_click=manage_json_file,
+        args=(OFFSET_JSON_PATH, None, unedited_offset_data),
+    )
+
     st.markdown("## Page Layout Definitions (Data editor doesn't like this data yet)")
-    
-    #paper_layout_editor = st.expander("Show/Edit", icon=":material/info:")
-    #paper_layout_data = unedited_paper_layout_data = st.session_state.paper_layouts_from_layouts
-    #edited_paper_layout = paper_layout_editor.data_editor(
+
+    # paper_layout_editor = st.expander("Show/Edit", icon=":material/info:")
+    # paper_layout_data = unedited_paper_layout_data = st.session_state.paper_layouts_from_layouts
+    # edited_paper_layout = paper_layout_editor.data_editor(
     #        paper_layout_data,
     #        num_rows="fixed",
     #        column_config={
     #            "name": "Layout Name"}
     #    )
-    #paper_layout_data = ''
-    #col1, col2 = paper_layout_editor.columns(2)
-    #col1.button('Save', key="plcol1", on_click=manage_json_file, args=(LAYOUTS_JSON_PATH, "paper_layouts", edited_paper_layout))
-    #col2.button('Undo Changes', key="plcol2", on_click=manage_json_file, args=(LAYOUTS_JSON_PATH, "paper_layouts", unedited_paper_layout_data))
+    # paper_layout_data = ''
+    # col1, col2 = paper_layout_editor.columns(2)
+    # col1.button('Save', key="plcol1", on_click=manage_json_file, args=(LAYOUTS_JSON_PATH, "paper_layouts", edited_paper_layout))
+    # col2.button('Undo Changes', key="plcol2", on_click=manage_json_file, args=(LAYOUTS_JSON_PATH, "paper_layouts", unedited_paper_layout_data))
+
+
+# if __name__ == '__main__':
+#    os.system("echo py -m streamlit run .\start_streamlit.py")
