@@ -62,7 +62,6 @@ selected_tab = option_menu(
 if selected_tab == "Run Plugin":
     st.markdown("## Run Plugin")
 
-    # Get available plugins
     plugins_dir = "plugins"
     available_plugin_dirs = [
         d
@@ -70,7 +69,7 @@ if selected_tab == "Run Plugin":
         if os.path.isdir(os.path.join(plugins_dir, d))
     ]
 
-    # Create mapping of display names to directory names
+    # Get proper display names
     plugin_options = {
         get_plugin_display_name(plugin_dir): plugin_dir
         for plugin_dir in available_plugin_dirs
@@ -79,7 +78,6 @@ if selected_tab == "Run Plugin":
     plugin_expander = st.expander("Card Fetching", expanded=True)
 
     with plugin_expander:
-        # Plugin selection with user-friendly names
         selected_plugin_display = st.selectbox(
             "Select Card Game Plugin",
             list(plugin_options.keys()),
@@ -120,12 +118,11 @@ if selected_tab == "Run Plugin":
             )
 
             if uploaded_file is not None:
-                # Save uploaded file to decklist directory
                 file_path = os.path.join(decklist_dir, uploaded_file.name)
                 with open(file_path, "wb") as f:
                     f.write(uploaded_file.getbuffer())
                 st.success(f"File {uploaded_file.name} uploaded successfully!")
-                st.rerun()  # Refresh to show the new file in the dropdown
+                st.rerun()
 
         # Determine which file to use
         deck_file_path = None
@@ -192,7 +189,6 @@ if selected_tab == "Run Plugin":
 
                     plugin_path = os.path.join(plugins_dir, selected_plugin)
 
-                    # Temporarily add the plugin directory to Python path
                     if plugin_path not in sys.path:
                         sys.path.insert(0, plugin_path)
 
@@ -213,18 +209,15 @@ if selected_tab == "Run Plugin":
                                 if opt["name"] not in ["deck_path", "format"]
                             ]
                     finally:
-                        # Remove the plugin path from sys.path to avoid conflicts
                         if plugin_path in sys.path:
                             sys.path.remove(plugin_path)
 
                         if plugin_options:
                             st.subheader("Plugin Options")
 
-                            # Create columns for organizing options
                             opt_col1, opt_col2 = st.columns(2)
 
                             for i, opt in enumerate(plugin_options):
-                                # Alternate between columns
                                 current_col = opt_col1 if i % 2 == 0 else opt_col2
 
                                 with current_col:
@@ -232,7 +225,6 @@ if selected_tab == "Run Plugin":
                                         opt["type"], click.types.StringParamType
                                     ):
                                         if opt.get("multiple", False):
-                                            # Handle multiple values (like prefer_set)
                                             opt["value"] = st.text_input(
                                                 label=opt["help"] or opt["name"],
                                                 value="",
@@ -343,7 +335,6 @@ if selected_tab == "Run Plugin":
                                 selected_format,
                             ]
 
-                            # Add optional arguments
                             for opt in plugin_options:
                                 if "value" in opt and opt["value"]:
                                     option_name = (
@@ -353,19 +344,16 @@ if selected_tab == "Run Plugin":
                                     if isinstance(
                                         opt["type"], click.types.BoolParamType
                                     ) and opt.get("is_flag", False):
-                                        # For boolean flags, only add the flag if True
                                         if opt["value"]:
                                             cmd.append(option_name)
                                     elif opt.get("multiple", False) and isinstance(
                                         opt["value"], str
                                     ):
-                                        # Handle multiple values (split by comma)
                                         for value in opt["value"].split(","):
                                             value = value.strip()
                                             if value:
                                                 cmd.extend([option_name, value])
                                     else:
-                                        # Regular option with value
                                         cmd.extend([option_name, str(opt["value"])])
 
                             with st.spinner(
