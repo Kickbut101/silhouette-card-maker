@@ -74,7 +74,7 @@ def parse_crop_string(crop_string: str | None, card_width: int, card_height: int
     "3mm" -> calls function to determine mm crop
     "3in" -> calls function to determine in crop
     """
-    if crop_string is None:
+    if crop_string is None or not crop_string:
         return 0, 0
 
     crop_string = crop_string.strip().lower()
