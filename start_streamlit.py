@@ -43,34 +43,23 @@ if (
 selected_tab = option_menu(
     None,
     [
-<<<<<<< HEAD
         "Run Plugin",
-=======
->>>>>>> streamlit-webui
         "Generate PDFs",
         "Offsets",
         "Edit Settings/JSON Files",
         "MiscTesting",
     ],
-<<<<<<< HEAD
     icons=["download", "suit-club-fill", "rulers", "gear", "bug"],
-=======
-    icons=["suit-club-fill", "rulers", "gear", "bug"],
->>>>>>> streamlit-webui
     on_change=on_tab_change,
     default_index=0,
     key="selected_tab",
     orientation="horizontal",
 )
 
-<<<<<<< HEAD
 # Route to appropriate tab based on selection
 if selected_tab == "Run Plugin":
     render_plugins_tab()
 elif selected_tab == "Generate PDFs":
-=======
-if selected_tab == "Generate PDFs":
->>>>>>> streamlit-webui
     render_generate_pdf_tab()
 elif selected_tab == "Offsets":
     render_offsets_tab()
