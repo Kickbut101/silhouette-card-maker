@@ -46,7 +46,7 @@ selected_tab = option_menu(
         "Edit Settings/JSON Files",
         "MiscTesting",
     ],
-    icons=["download", "suit-club-fill", "rulers", "gear", "bug"],
+    icons=["suit-club-fill", "rulers", "gear", "bug"],
     on_change=on_tab_change,
     default_index=0,
     key="selected_tab",
