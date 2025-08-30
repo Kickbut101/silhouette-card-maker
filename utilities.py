@@ -635,9 +635,9 @@ def load_user_prefs():
 
     return None
 
-def load_saved_offset() -> OffsetData:
-    if os.path.exists('data/offset_data.json'):
-        with open('data/offset_data.json', 'r') as offset_file:
+def load_saved_offset(path='data/offset_data.json') -> OffsetData:
+    if os.path.exists(path):
+        with open(path, 'r') as offset_file:
             try:
                 data = json.load(offset_file)
                 return OffsetData(**data)

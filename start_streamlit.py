@@ -5,8 +5,10 @@ import pandas as pd
 import streamlit as st
 import re
 import operator
+import io, sys
 import os
 
+from contextlib import redirect_stdout
 from streamlit_extras.pdf_viewer import (
     pdf_viewer,
 )  # https://arnaudmiribel.github.io/streamlit-extras/extras/pdf_viewer/
@@ -22,8 +24,10 @@ from utilities import (
     load_user_prefs,
     CardSize,
     PaperSize,
+    OffsetData
 )
-from create_pdf import generate_pdf, cli
+from create_pdf import cli, generate_pdf
+from offset_pdf import offset_pdf
 
 
 st.set_page_config(
@@ -40,42 +44,7 @@ st.set_page_config(
 LAYOUTS_JSON_PATH = "./assets/layouts.json"
 OFFSET_JSON_PATH = "./calibration/data/offset_data.json"
 USERPREFS_JSON_PATH = "./userprefs.json"
-
-# json_dirty = {
-#    "layouts": False,
-#    "offset_data": False,
-# }
-
-# def get_function_params_defaults(func):
-#    """
-#    Returns a dict of parameter names and their default values for a function.
-#    If no default, value is None.
-#    """
-#    sig = inspect.signature(func)
-#    params = {}
-#    for name, param in sig.parameters.items():
-#        if param.default is inspect.Parameter.empty:
-#            params[name] = None
-#        else:
-#            params[name] = param.default
-#    return params
-
-# def dynamic_class_from_func(func):
-#    """
-#    Returns a class with __init__ that sets attributes for each parameter in func.
-#    """
-#    params = get_function_params_defaults(func)
-#    class DynamicSettings:
-#        def __init__(self, **kwargs):
-#            for key, default in params.items():
-#                setattr(self, key, kwargs.get(key, default))
-#    return DynamicSettings
-
-# CreatePDFSettings = dynamic_class_from_func(generate_pdf)
-# settings = CreatePDFSettings(card_size="standard", output_path="output.pdf")
-# print(settings.card_size)  # "standard"
-# print(settings.output_path)  # "output.pdf"
-
+HELP_DOCUMENTATION_URL = 'https://alan-cha.github.io/silhouette-card-maker/'
 
 def manage_json_file(json_path: str, section=None, edits=None):
     """
@@ -91,8 +60,6 @@ def manage_json_file(json_path: str, section=None, edits=None):
             return data
         # Just read and return the section
         return data.get(section, None)
-
-    # elif any(json_dirty.values()):
     else:
         # Update the section and write back
         if section is None:
@@ -107,19 +74,59 @@ def manage_json_file(json_path: str, section=None, edits=None):
 
 def reload_jsons():
     layouts_json = manage_json_file(LAYOUTS_JSON_PATH)
-    offsets_json = manage_json_file(OFFSET_JSON_PATH)
+    offsets_data = load_saved_offset(path=OFFSET_JSON_PATH)
     if layouts_json is not None:
         st.session_state.df = pd.read_json(LAYOUTS_JSON_PATH)
         st.session_state.card_sizes_from_layouts = layouts_json["card_sizes"]
         st.session_state.paper_layouts_from_layouts = layouts_json["paper_layouts"]
-    if offsets_json is not None:
-        st.session_state.offset_data = offsets_json
+    if offsets_data is not None:
+        st.session_state.offsets_data = offsets_data
 
+
+def validate_gen_options(options_dict):
+    if options_dict['front_dir_path'] is None:
+        options_dict['front_dir_path'] = ""
+    if options_dict['back_dir_path'] is None:
+        options_dict['back_dir_path'] = ""
+    if options_dict['double_sided_dir_path'] is None:
+        options_dict['double_sided_dir_path'] = ""
+    if options_dict['output_path'] is None:
+        options_dict['output_path'] = ""
+    if options_dict['output_images'] is None:
+        options_dict['output_images'] = False
+    if options_dict['card_size'] is None:
+        options_dict['card_size'] = ""
+    if options_dict['paper_size'] is None:
+        options_dict['paper_size'] = ""
+    if options_dict['only_fronts'] is None:
+        options_dict['only_fronts'] = False
+    #if options_dict.get('crop'):
+    #    temp = options_dict['crop']
+    #    del options_dict['crop']
+    #    options_dict['crop_string'] = temp
+    #if options_dict['crop'] is None:
+    #    options_dict['crop'] = ""
+    if options_dict['extend_corners'] is None:
+        options_dict['extend_corners'] = 0
+    if options_dict['ppi'] is None:
+        options_dict['ppi'] = 300
+    if options_dict['quality'] is None:
+        options_dict['quality'] = 100
+    #if options_dict['skip_indices'] is None:
+    #    options_dict['skip_indices'] = []
+    if options_dict['load_offset'] is None:
+        options_dict['load_offset'] = False
+    if options_dict['name'] is None:
+        options_dict['name'] = ""
+    return options_dict
 
 def get_click_command_options(click_command):
     """
     Returns a list of dicts with parameter names and their default values from a click command.
+    
     """
+    # This is dumb, I could have just called the function name + .params, 
+    
     options = []
     for param in click_command.params:
         if isinstance(param, click.Option):
@@ -133,30 +140,44 @@ def get_click_command_options(click_command):
                     "show_default": param.show_default,
                     "value": param.default,
                     "required": param.required,
+                    "expose_value": param.expose_value
                 }
             )
     return options
 
+def convert_click_options_to_dict(options):
+    
+    my_dict = {}
+    
+    for o in options:
+        if (o['value'] is not None) and (not o['value'] == ""):
+            my_dict[o['name']] = o['value']
+        else:
+            my_dict[o['name']] = ''
+        #elif o['default'] is not None:
+        #    my_dict[o['name']] = o['default']
+    return my_dict
+
 
 def on_tab_change(key):
-    print(f"{key}")
-    # st.session_state[key] = selected_tab
-    # if key
+    pass
 
+def save_cached_data(cachename, variable):
+    st.session_state.cachename = variable
 
 st.markdown("# Silhouette Card Maker")
 if (
     ("df" not in st.session_state)
     or ("card_sizes_from_layouts" not in st.session_state)
     or ("paper_layouts_from_layouts" not in st.session_state)
-    or ("offset_data" not in st.session_state)
+    or ("offsets_data" not in st.session_state)
 ):
     reload_jsons()
 
 selected_tab = option_menu(
     None,
-    ["Generate PDFs", "Offsets", "Settings", "Edit JSON Files"],
-    icons=["suit-club-fill", "rulers", "gear", ""],
+    ["Generate PDFs", "Offsets", "Edit Settings/JSON Files"],
+    icons=["suit-club-fill", "rulers", "gear"],
     on_change=on_tab_change,
     default_index=0,
     key="selected_tab",
@@ -164,29 +185,38 @@ selected_tab = option_menu(
 )
 
 if selected_tab == "Generate PDFs":
-    create_pdf_options = get_click_command_options(cli)
+    
+    if (
+    ("create_pdf_options" not in st.session_state)
+    ):
+        create_pdf_options = get_click_command_options(cli)
+        st.session_state.create_pdf_options = create_pdf_options
+    else:
+        create_pdf_options = st.session_state.create_pdf_options
+
 
     gen_pdf_expander = st.expander("Generate PDFs", expanded=False)
-    gen_pdf_form = gen_pdf_expander.form(key="gen_pdf_form")
+    card_size = gen_pdf_expander.pills(label="Card Size", options=[c.name for c in CardSize],default="STANDARD")
+    paper_size = gen_pdf_expander.pills(label="Paper Size", options=[p.name for p in PaperSize],default="LETTER")
+    
+    gen_pdf_form = gen_pdf_expander.form(key="gen_pdf_form", enter_to_submit=False)
 
-    card_size = gen_pdf_form.pills("Card Size", [c.name for c in CardSize])
-    paper_size = gen_pdf_form.pills("Paper Size", [p.name for p in PaperSize])
+    gen_pdf_form.link_button("create_pdf.py Documentation Page", 'https://alan-cha.github.io/silhouette-card-maker/docs/create/', icon=":material/live_help:")
 
-    gpcol1, gpcol2, gpcol3 = gen_pdf_form.columns([1, 2, 2])
+    gpcol1, gpcol2, gpcol3 = gen_pdf_form.columns([1, 1, 1])
+    
+    optional = gpcol3.expander("Additional Options", expanded=False)
 
     # gen_pdf_form.write(list(map(operator.itemgetter("type"), create_pdf_options)))
 
     for opt in create_pdf_options:
-        opt
-
-        #click.Parameter
         if isinstance(opt["type"], click.types.StringParamType):
             if opt["show_default"] is True:
                 if re.search(r"directory|path", opt["help"]):
                     opt["value"] = gpcol1.text_input(
                         label=opt["help"],
-                        value=str(f"{'.\\'}{opt['value']}"),
-                        placeholder=str(f"{'.\\'}{opt['default']}"),
+                        value=opt['value'],
+                        placeholder=opt['default'],
                         key=opt["name"],
                     )
                 else:
@@ -196,80 +226,166 @@ if selected_tab == "Generate PDFs":
                         placeholder=opt["default"],
                         key=opt["name"],
                     )
+            else:
+                opt["value"] = optional.text_input(
+                    label=opt["help"],
+                    value=opt["value"],
+                    placeholder=opt["default"],
+                    key=opt["name"],
+                )
+                
+        elif isinstance(opt["type"], click.types.BoolParamType):
+            if opt["is_flag"]:
+                if opt["show_default"] is True:
+                    opt["value"] = gpcol3.toggle(
+                        label=opt["help"], value=opt["value"], key=opt["name"]
+                    )
+                else:
+                    opt["value"] = optional.toggle(
+                        label=opt["help"], value=opt["value"], key=opt["name"]
+                    )
 
-        # elif isinstance({opt['type']}, click.types.IntParamType):
-        #    gpcol2.write("found a int")
-        #    opt['value'] = gpcol2.number_input(
-        #        value=opt['value'],
-        #        label=opt['help'],
-        #        key=opt['name'],
-        #    )
+        elif isinstance(opt["type"], click.types.IntRange):
+            num_input_kwargs = {
+                "label": opt["help"],
+                "value": opt["value"],
+                "key": opt["name"],
+            }
+
+            if getattr(opt["type"], "max", None) is not None:
+                num_input_kwargs["max_value"] = opt["type"].max
+
+            if getattr(opt["type"], "min", None) is not None:
+                num_input_kwargs["min_value"] = opt["type"].min
+
+            opt["value"] = gpcol2.number_input(**num_input_kwargs)
 
         elif isinstance(opt["type"], click.types.IntParamType):
-            opt["value"] = gpcol2.number_input(
-                label=opt["help"],
-                value=opt["value"],
-                key=opt["name"],
-            )
-        elif isinstance(opt["type"], bool):
-            if opt["is_flag"]:
-                gpcol2.write("found flag")
-                opt["value"] = gpcol2.toggle(
-                    label=opt["help"], value=opt["value"], key=opt["name"]
-                )
-        #   else:
-        #       gpcol2.write("found a range")
-        #       opt['value'] = gpcol2.number_input(
-        #           label=opt['help'],
-        #           min_value= 0,
-        #           max_value= 10,
-        #           value=opt['value'],
-        #           key=opt['name'],
-        #       )
+            pass
+        elif isinstance(opt["type"], click.types.FloatParamType):
+            pass
+        elif isinstance(opt["type"], click.types.Choice):
+            if re.search(r"card_size", opt["name"]):
+                opt["value"] = CardSize[card_size].value
+            if re.search(r"paper_size", opt["name"]):
+                opt["value"] = PaperSize[paper_size].value
         else:
-            gpcol3.write("catchall")
+            pass
+    gen_pdf_only_save = gen_pdf_form.toggle(label="Just save my values (Don't Submit)")
+    gen_pdf_form_submit = gen_pdf_form.form_submit_button(label="Create PDFs", on_click=save_cached_data, args=("create_pdf_options",create_pdf_options))
 
-    gen_pdf_form.form_submit_button("WOW")
-    # opt['value'] = gpcol2.number_input(
-    #    label=opt['help'],
-    #    min_value= 0,
-    #    max_value= 10,
-    #    value=opt['value'],
-    #    key=opt['name'],
-    # )
-
-    # card_front_dir = gpcol1.text_input(
-    #    "Card Front Directory (Relative)",
-    #    key="cardfrontdirectory",
-    # )
-    # card_back_dir = gpcol1.text_input(
-    #    "Card Back Directory (Relative)",
-    #    value=LAYOUTS_JSON_PATH,
-    #    placeholder=LAYOUTS_JSON_PATH,
-    #    key="cardbackdirectory",
-    # )
-    # gpcol1_expander = gpcol1.expander("Double Sided Path", expanded=False)
-
-    # double_side_dir = gpcol1_expander.text_input(
-    #    "Double Sided Card Directory (Relative)",
-    #    key="dblsidedirectory",
-    # )
-
-    # output_path_expander = gpcol2.expander("Output Paths", expanded=False)
-#
-# output_path_dir = output_path_expander.text_input(
-#     "Card Output Directory (Relative)",
-#     key="cardoutputdirectory",
-# )
-
-# extra_options_expander = gpcol3.expander("Extra Options", expanded=False)
+    if gen_pdf_form_submit:
+        if not gen_pdf_only_save:
+            create_pdf_options_dict = convert_click_options_to_dict(create_pdf_options)
+            del create_pdf_options_dict["version"]
+            
+            create_pdf_options_dict = validate_gen_options(create_pdf_options_dict)
+            
+            print(create_pdf_options_dict)
+            cli.callback(**create_pdf_options_dict)
+            st.success("PDF Generation Sent")
+        # Maybe bug? I think one of these two are not working.
+        st.session_state.create_pdf_options = create_pdf_options
+        save_cached_data("create_pdf_options",create_pdf_options)
 
 
 elif selected_tab == "Offsets":
-    st.write("You're a fucking loser")
-elif selected_tab == "Settings":
-    st.write("You're a fucking loser")
-elif selected_tab == "Edit JSON Files":
+    
+    if (
+    ("offset_pdf_options" not in st.session_state)
+    ):
+        offset_pdf_options = get_click_command_options(offset_pdf)
+        st.session_state.offset_pdf_options = offset_pdf_options
+    else:
+        offset_pdf_options = st.session_state.offset_pdf_options
+    
+    if st.session_state.offsets_data:
+        temp_offset = st.session_state.offsets_data
+        for o in offset_pdf_options:
+            if o['name'] == "x_offset":
+                o['value'] = temp_offset.x_offset
+            elif o['name'] == "y_offset":
+                o['value'] = temp_offset.y_offset
+                
+    
+    offset_pdf_expander = st.expander("Adjust Offsets", expanded=False)
+    offset_pdf_form = offset_pdf_expander.form(key="offset_pdf_form", enter_to_submit=False)
+
+    offset_pdf_form.link_button("offset_pdf.py Documentation Page", 'https://alan-cha.github.io/silhouette-card-maker/docs/offset/', icon=":material/live_help:")
+
+    opcol1, opcol2 = offset_pdf_form.columns([1, 1])
+    
+    for opt in offset_pdf_options:
+
+        if isinstance(opt["type"], click.types.StringParamType):
+            opt["value"] = opcol1.text_input(
+                label=opt["help"],
+                value=opt['value'],
+                placeholder=opt['default'],
+                key=opt["name"],
+            )
+                
+        elif isinstance(opt["type"], click.types.BoolParamType):
+            if opt["is_flag"]:
+                opt["value"] = opcol2.toggle(
+                    label=opt["help"], value=opt["value"], key=opt["name"]
+                )
+
+        elif isinstance(opt["type"], click.types.IntRange):
+            num_input_kwargs = {
+                "label": opt["help"],
+                "value": opt["value"],
+                "key": opt["name"],
+            }
+
+            if getattr(opt["type"], "max", None) is not None:
+                num_input_kwargs["max_value"] = opt["type"].max
+
+            if getattr(opt["type"], "min", None) is not None:
+                num_input_kwargs["min_value"] = opt["type"].min
+
+            opt["value"] = opcol2.number_input(**num_input_kwargs)
+
+        elif isinstance(opt["type"], click.types.IntParamType):
+            num_input_kwargs = {
+                "label": opt["help"],
+                "value": opt["value"],
+                "key": opt["name"],
+                "step": 1
+            }
+            if getattr(opt["type"], "max", None) is not None:
+                num_input_kwargs["max_value"] = opt["type"].max
+
+            if getattr(opt["type"], "min", None) is not None:
+                num_input_kwargs["min_value"] = opt["type"].min
+
+            opt["value"] = opcol1.number_input(**num_input_kwargs)
+        elif isinstance(opt["type"], click.types.FloatParamType):
+            pass
+        elif isinstance(opt["type"], click.types.Choice):
+            if re.search(r"card_size|paper_size", opt["name"]):
+                pass
+            else:
+                print(f"Choice, {opt['name']}")
+
+        else:
+            pass
+    gen_offset_only_save = offset_pdf_form.toggle(label="Just save my values (Don't Submit)")
+    
+    running_log_placeholder = st.empty()
+    
+    if (offset_pdf_form.form_submit_button("Submit/Save")):
+        if not gen_offset_only_save:
+            offset_pdf_options_dict = convert_click_options_to_dict(offset_pdf_options)
+            offset_pdf.callback(**offset_pdf_options_dict)
+            offset_pdf_expander.info("PDF Generation Sent")
+        # Maybe bug? I think one of these two are not working.
+        st.session_state.offset_pdf_options = offset_pdf_options
+        save_cached_data("offset_pdf_options",offset_pdf_options)
+            
+        
+    
+elif selected_tab == "Edit Settings/JSON Files":
     st.markdown("## Card Size Definitions")
 
     card_size_editor = st.expander("Show/Edit", icon=":material/info:")
@@ -293,38 +409,28 @@ elif selected_tab == "Edit JSON Files":
     st.markdown("## Offset Data")
 
     offset_expander = st.expander("Show/Edit", icon=":material/info:")
-    offset_data = unedited_offset_data = st.session_state.offset_data
-    edited_offset_data = offset_expander.data_editor(offset_data, num_rows="fixed")
-    offset_data = ""
+    offsets_data = unedited_offsets_data = st.session_state.offsets_data
+    edited_offsets_data = offset_expander.data_editor(offsets_data, num_rows="fixed")
+    offsets_data = ""
     col1, col2 = offset_expander.columns(2)
     col1.button(
         "Save",
         key="oscol1",
         on_click=manage_json_file,
-        args=(OFFSET_JSON_PATH, None, edited_offset_data),
+        args=(OFFSET_JSON_PATH, None, edited_offsets_data),
     )
     col2.button(
         "Undo Changes",
         key="oscol2",
         on_click=manage_json_file,
-        args=(OFFSET_JSON_PATH, None, unedited_offset_data),
+        args=(OFFSET_JSON_PATH, None, unedited_offsets_data),
     )
 
     st.markdown("## Page Layout Definitions (Data editor doesn't like this data yet)")
 
-    # paper_layout_editor = st.expander("Show/Edit", icon=":material/info:")
-    # paper_layout_data = unedited_paper_layout_data = st.session_state.paper_layouts_from_layouts
-    # edited_paper_layout = paper_layout_editor.data_editor(
-    #        paper_layout_data,
-    #        num_rows="fixed",
-    #        column_config={
-    #            "name": "Layout Name"}
-    #    )
-    # paper_layout_data = ''
-    # col1, col2 = paper_layout_editor.columns(2)
-    # col1.button('Save', key="plcol1", on_click=manage_json_file, args=(LAYOUTS_JSON_PATH, "paper_layouts", edited_paper_layout))
-    # col2.button('Undo Changes', key="plcol2", on_click=manage_json_file, args=(LAYOUTS_JSON_PATH, "paper_layouts", unedited_paper_layout_data))
 
+#offset_pdf_formdata
+#offset_pdf_form
 
 # if __name__ == '__main__':
 #    os.system("echo py -m streamlit run .\start_streamlit.py")
