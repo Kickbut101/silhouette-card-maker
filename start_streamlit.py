@@ -1,14 +1,3 @@
-import numpy as np
-import inspect
-import json
-import pandas as pd
-import streamlit as st
-import re
-import operator
-import io, sys
-import os
-
-from contextlib import redirect_stdout
 from streamlit_extras.pdf_viewer import (
     pdf_viewer,
 )  # https://arnaudmiribel.github.io/streamlit-extras/extras/pdf_viewer/
@@ -16,19 +5,9 @@ from streamlit_option_menu import (
     option_menu,
 )  # https://github.com/victoryhb/streamlit-option-menu
 
-import click
-from utilities import (
-    load_saved_offset,
-    offset_images,
-    save_offset,
-    load_user_prefs,
-    CardSize,
-    PaperSize,
-    OffsetData
-)
+from utilities import *
 from create_pdf import cli, generate_pdf
 from offset_pdf import offset_pdf
-
 
 st.set_page_config(
     page_title="Silhouette Card Maker",
@@ -40,127 +19,6 @@ st.set_page_config(
         "About": "https://github.com/Alan-Cha/silhouette-card-maker",
     },
 )
-
-LAYOUTS_JSON_PATH = "./assets/layouts.json"
-OFFSET_JSON_PATH = "./calibration/data/offset_data.json"
-USERPREFS_JSON_PATH = "./userprefs.json"
-HELP_DOCUMENTATION_URL = 'https://alan-cha.github.io/silhouette-card-maker/'
-
-def manage_json_file(json_path: str, section=None, edits=None):
-    """
-    Reads or writes edits to a section of layouts.json.
-    If edits is None, returns the section.
-    If edits is provided, updates the section and writes the file.
-    """
-    with open(json_path, "r", encoding="utf8") as f:
-        data = json.load(f)
-
-    if edits is None:
-        if section is None:
-            return data
-        # Just read and return the section
-        return data.get(section, None)
-    else:
-        # Update the section and write back
-        if section is None:
-            data = edits
-        else:
-            data[section] = edits
-
-        with open(json_path, "w", encoding="utf8") as f:
-            json.dump(data, f, indent=4)
-        reload_jsons()
-
-
-def reload_jsons():
-    layouts_json = manage_json_file(LAYOUTS_JSON_PATH)
-    try:
-        offsets_data = load_saved_offset(path=OFFSET_JSON_PATH)
-    except:
-        pass
-    if layouts_json is not None:
-        st.session_state.df = pd.read_json(LAYOUTS_JSON_PATH)
-        st.session_state.card_sizes_from_layouts = layouts_json["card_sizes"]
-        st.session_state.paper_layouts_from_layouts = layouts_json["paper_layouts"]
-    if offsets_data is not None:
-        st.session_state.offsets_data = offsets_data
-
-
-def validate_gen_options(options_dict):
-    if options_dict['front_dir_path'] is None:
-        options_dict['front_dir_path'] = ""
-    if options_dict['back_dir_path'] is None:
-        options_dict['back_dir_path'] = ""
-    if options_dict['double_sided_dir_path'] is None:
-        options_dict['double_sided_dir_path'] = ""
-    if options_dict['output_path'] is None:
-        options_dict['output_path'] = ""
-    if options_dict['output_images'] is None:
-        options_dict['output_images'] = False
-    if options_dict['card_size'] is None:
-        options_dict['card_size'] = ""
-    if options_dict['paper_size'] is None:
-        options_dict['paper_size'] = ""
-    if options_dict['only_fronts'] is None:
-        options_dict['only_fronts'] = False
-    #if options_dict.get('crop'):
-    #    temp = options_dict['crop']
-    #    del options_dict['crop']
-    #    options_dict['crop_string'] = temp
-    #if options_dict['crop'] is None:
-    #    options_dict['crop'] = ""
-    if options_dict['extend_corners'] is None:
-        options_dict['extend_corners'] = 0
-    if options_dict['ppi'] is None:
-        options_dict['ppi'] = 300
-    if options_dict['quality'] is None:
-        options_dict['quality'] = 100
-    #if options_dict['skip_indices'] is None:
-    #    options_dict['skip_indices'] = []
-    if options_dict['load_offset'] is None:
-        options_dict['load_offset'] = False
-    if options_dict['name'] is None:
-        options_dict['name'] = ""
-    return options_dict
-
-def get_click_command_options(click_command):
-    """
-    Returns a list of dicts with parameter names and their default values from a click command.
-    
-    """
-    # This is dumb, I could have just called the function name + .params, 
-    
-    options = []
-    for param in click_command.params:
-        if isinstance(param, click.Option):
-            options.append(
-                {
-                    "name": param.name,
-                    "default": param.default,
-                    "help": param.help,
-                    "is_flag": param.is_flag,
-                    "type": param.type,
-                    "show_default": param.show_default,
-                    "value": param.default,
-                    "required": param.required,
-                    "expose_value": param.expose_value
-                }
-            )
-    return options
-
-def convert_click_options_to_dict(options):
-    
-    my_dict = {}
-    
-    for o in options:
-        if (o['value'] is not None) and (not o['value'] == ""):
-            my_dict[o['name']] = o['value']
-        else:
-            my_dict[o['name']] = ''
-        #elif o['default'] is not None:
-        #    my_dict[o['name']] = o['default']
-    return my_dict
-
 
 def on_tab_change(key):
     pass
@@ -179,7 +37,7 @@ if (
 
 selected_tab = option_menu(
     None,
-    ["Generate PDFs", "Offsets", "Edit Settings/JSON Files"],
+    ["Generate PDFs", "Offsets", "Edit Settings/JSON Files", "MiscTesting"],
     icons=["suit-club-fill", "rulers", "gear"],
     on_change=on_tab_change,
     default_index=0,
@@ -209,8 +67,6 @@ if selected_tab == "Generate PDFs":
     gpcol1, gpcol2, gpcol3 = gen_pdf_form.columns([1, 1, 1])
     
     optional = gpcol3.expander("Additional Options", expanded=False)
-
-    # gen_pdf_form.write(list(map(operator.itemgetter("type"), create_pdf_options)))
 
     for opt in create_pdf_options:
         if isinstance(opt["type"], click.types.StringParamType):
@@ -290,7 +146,6 @@ if selected_tab == "Generate PDFs":
         # Maybe bug? I think one of these two are not working.
         st.session_state.create_pdf_options = create_pdf_options
         save_cached_data("create_pdf_options",create_pdf_options)
-
 
 elif selected_tab == "Offsets":
     
@@ -389,8 +244,6 @@ elif selected_tab == "Offsets":
         st.session_state.offset_pdf_options = offset_pdf_options
         save_cached_data("offset_pdf_options",offset_pdf_options)
             
-        
-    
 elif selected_tab == "Edit Settings/JSON Files":
     st.markdown("## Card Size Definitions")
 
@@ -415,28 +268,27 @@ elif selected_tab == "Edit Settings/JSON Files":
     st.markdown("## Offset Data")
 
     offset_expander = st.expander("Show/Edit", icon=":material/info:")
-    offsets_data = unedited_offsets_data = st.session_state.offsets_data
-    edited_offsets_data = offset_expander.data_editor(offsets_data, num_rows="fixed")
-    offsets_data = ""
-    col1, col2 = offset_expander.columns(2)
-    col1.button(
-        "Save",
-        key="oscol1",
-        on_click=manage_json_file,
-        args=(OFFSET_JSON_PATH, None, edited_offsets_data),
-    )
-    col2.button(
-        "Undo Changes",
-        key="oscol2",
-        on_click=manage_json_file,
-        args=(OFFSET_JSON_PATH, None, unedited_offsets_data),
-    )
-
+    try:
+        offsets_data = unedited_offsets_data = st.session_state.offsets_data
+        edited_offsets_data = offset_expander.data_editor(offsets_data, num_rows="fixed")
+        offsets_data = ""
+        col1, col2 = offset_expander.columns(2)
+        col1.button(
+            "Save",
+            key="oscol1",
+            on_click=manage_json_file,
+            args=(OFFSET_JSON_PATH, None, edited_offsets_data),
+        )
+        col2.button(
+            "Undo Changes",
+            key="oscol2",
+            on_click=manage_json_file,
+            args=(OFFSET_JSON_PATH, None, unedited_offsets_data),
+        )
+    except:
+        offset_expander.write("No Offset data loaded/found.")
     st.markdown("## Page Layout Definitions (Data editor doesn't like this data yet)")
-
-
-#offset_pdf_formdata
-#offset_pdf_form
-
-# if __name__ == '__main__':
-#    os.system("echo py -m streamlit run .\start_streamlit.py")
+    
+elif selected_tab == "MiscTesting":
+    testform = st.form(key="testform", enter_to_submit=False)
+    testform.form_submit_button("Submit")    
