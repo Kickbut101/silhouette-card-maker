@@ -24,10 +24,11 @@ st.set_page_config(
     },
 )
 
-
 def on_tab_change(key):
     pass
 
+def save_cached_data(cachename, variable):
+    st.session_state.cachename = variable
 
 st.markdown("# Silhouette Card Maker")
 if (
