@@ -74,7 +74,10 @@ def manage_json_file(json_path: str, section=None, edits=None):
 
 def reload_jsons():
     layouts_json = manage_json_file(LAYOUTS_JSON_PATH)
-    offsets_data = load_saved_offset(path=OFFSET_JSON_PATH)
+    try:
+        offsets_data = load_saved_offset(path=OFFSET_JSON_PATH)
+    except:
+        pass
     if layouts_json is not None:
         st.session_state.df = pd.read_json(LAYOUTS_JSON_PATH)
         st.session_state.card_sizes_from_layouts = layouts_json["card_sizes"]
@@ -299,78 +302,81 @@ elif selected_tab == "Offsets":
     else:
         offset_pdf_options = st.session_state.offset_pdf_options
     
-    if st.session_state.offsets_data:
-        temp_offset = st.session_state.offsets_data
-        for o in offset_pdf_options:
-            if o['name'] == "x_offset":
-                o['value'] = temp_offset.x_offset
-            elif o['name'] == "y_offset":
-                o['value'] = temp_offset.y_offset
-                
-    
     offset_pdf_expander = st.expander("Adjust Offsets", expanded=False)
     offset_pdf_form = offset_pdf_expander.form(key="offset_pdf_form", enter_to_submit=False)
-
-    offset_pdf_form.link_button("offset_pdf.py Documentation Page", 'https://alan-cha.github.io/silhouette-card-maker/docs/offset/', icon=":material/live_help:")
-
-    opcol1, opcol2 = offset_pdf_form.columns([1, 1])
     
-    for opt in offset_pdf_options:
+    try:
+        if st.session_state.offsets_data:
+            temp_offset = st.session_state.offsets_data
+            for o in offset_pdf_options:
+                if o['name'] == "x_offset":
+                    o['value'] = temp_offset.x_offset
+                elif o['name'] == "y_offset":
+                    o['value'] = temp_offset.y_offset
 
-        if isinstance(opt["type"], click.types.StringParamType):
-            opt["value"] = opcol1.text_input(
-                label=opt["help"],
-                value=opt['value'],
-                placeholder=opt['default'],
-                key=opt["name"],
-            )
-                
-        elif isinstance(opt["type"], click.types.BoolParamType):
-            if opt["is_flag"]:
-                opt["value"] = opcol2.toggle(
-                    label=opt["help"], value=opt["value"], key=opt["name"]
+        offset_pdf_form.link_button("offset_pdf.py Documentation Page", 'https://alan-cha.github.io/silhouette-card-maker/docs/offset/', icon=":material/live_help:")
+
+        opcol1, opcol2 = offset_pdf_form.columns([1, 1])
+        
+        for opt in offset_pdf_options:
+
+            if isinstance(opt["type"], click.types.StringParamType):
+                opt["value"] = opcol1.text_input(
+                    label=opt["help"],
+                    value=opt['value'],
+                    placeholder=opt['default'],
+                    key=opt["name"],
                 )
+                    
+            elif isinstance(opt["type"], click.types.BoolParamType):
+                if opt["is_flag"]:
+                    opt["value"] = opcol2.toggle(
+                        label=opt["help"], value=opt["value"], key=opt["name"]
+                    )
 
-        elif isinstance(opt["type"], click.types.IntRange):
-            num_input_kwargs = {
-                "label": opt["help"],
-                "value": opt["value"],
-                "key": opt["name"],
-            }
+            elif isinstance(opt["type"], click.types.IntRange):
+                num_input_kwargs = {
+                    "label": opt["help"],
+                    "value": opt["value"],
+                    "key": opt["name"],
+                }
 
-            if getattr(opt["type"], "max", None) is not None:
-                num_input_kwargs["max_value"] = opt["type"].max
+                if getattr(opt["type"], "max", None) is not None:
+                    num_input_kwargs["max_value"] = opt["type"].max
 
-            if getattr(opt["type"], "min", None) is not None:
-                num_input_kwargs["min_value"] = opt["type"].min
+                if getattr(opt["type"], "min", None) is not None:
+                    num_input_kwargs["min_value"] = opt["type"].min
 
-            opt["value"] = opcol2.number_input(**num_input_kwargs)
+                opt["value"] = opcol2.number_input(**num_input_kwargs)
 
-        elif isinstance(opt["type"], click.types.IntParamType):
-            num_input_kwargs = {
-                "label": opt["help"],
-                "value": opt["value"],
-                "key": opt["name"],
-                "step": 1
-            }
-            if getattr(opt["type"], "max", None) is not None:
-                num_input_kwargs["max_value"] = opt["type"].max
+            elif isinstance(opt["type"], click.types.IntParamType):
+                num_input_kwargs = {
+                    "label": opt["help"],
+                    "value": opt["value"],
+                    "key": opt["name"],
+                    "step": 1
+                }
+                if getattr(opt["type"], "max", None) is not None:
+                    num_input_kwargs["max_value"] = opt["type"].max
 
-            if getattr(opt["type"], "min", None) is not None:
-                num_input_kwargs["min_value"] = opt["type"].min
+                if getattr(opt["type"], "min", None) is not None:
+                    num_input_kwargs["min_value"] = opt["type"].min
 
-            opt["value"] = opcol1.number_input(**num_input_kwargs)
-        elif isinstance(opt["type"], click.types.FloatParamType):
-            pass
-        elif isinstance(opt["type"], click.types.Choice):
-            if re.search(r"card_size|paper_size", opt["name"]):
+                opt["value"] = opcol1.number_input(**num_input_kwargs)
+            elif isinstance(opt["type"], click.types.FloatParamType):
                 pass
-            else:
-                print(f"Choice, {opt['name']}")
+            elif isinstance(opt["type"], click.types.Choice):
+                if re.search(r"card_size|paper_size", opt["name"]):
+                    pass
+                else:
+                    print(f"Choice, {opt['name']}")
 
-        else:
-            pass
-    gen_offset_only_save = offset_pdf_form.toggle(label="Just save my values (Don't Submit)")
+            else:
+                pass
+        gen_offset_only_save = offset_pdf_form.toggle(label="Just save my values (Don't Submit)")
+    except:
+        offset_pdf_form.write("No Offset data loaded/found.")
+        pass
     
     running_log_placeholder = st.empty()
     
