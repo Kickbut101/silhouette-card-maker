@@ -24,6 +24,47 @@ OFFSET_JSON_PATH = "./calibration/data/offset_data.json"
 USERPREFS_JSON_PATH = "./userprefs.json"
 HELP_DOCUMENTATION_URL = 'https://alan-cha.github.io/silhouette-card-maker/'
 
+# Plugin directory name to user-friendly name mapping
+PLUGIN_DISPLAY_NAMES = {
+    "altered": "Altered",
+    "digimon": "Digimon",
+    "flesh_and_blood": "Flesh and Blood", 
+    "grand_archive": "Grand Archive",
+    "gundam": "Gundam",
+    "lorcana": "Lorcana",
+    "mtg": "Magic: The Gathering",
+    "netrunner": "Netrunner",
+    "one_piece": "One Piece",
+    "riftbound": "Riftbound",
+    "yugioh": "Yu-Gi-Oh!"
+}
+
+def get_plugin_display_name(plugin_dir_name: str) -> str:
+    """
+    Get the user-friendly display name for a plugin directory name.
+    
+    Args:
+        plugin_dir_name: The directory name of the plugin (e.g., "mtg", "flesh_and_blood")
+        
+    Returns:
+        User-friendly display name (e.g., "Magic: The Gathering", "Flesh and Blood")
+    """
+    return PLUGIN_DISPLAY_NAMES.get(plugin_dir_name, plugin_dir_name.replace("_", " ").title())
+
+def get_plugin_directory_name(display_name: str) -> str:
+    """
+    Get the plugin directory name from a user-friendly display name.
+    
+    Args:
+        display_name: The user-friendly display name (e.g., "Magic: The Gathering")
+        
+    Returns:
+        Plugin directory name (e.g., "mtg")
+    """
+    # Create reverse mapping
+    reverse_mapping = {v: k for k, v in PLUGIN_DISPLAY_NAMES.items()}
+    return reverse_mapping.get(display_name, display_name.lower().replace(" ", "_"))
+
 class CardSize(str, Enum):
     STANDARD = "standard"
     STANDARD_DOUBLE = "standard_double"
