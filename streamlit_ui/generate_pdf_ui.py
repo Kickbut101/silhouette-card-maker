@@ -109,7 +109,7 @@ def render_generate_pdf_tab():
 
             create_pdf_options_dict = validate_gen_options(create_pdf_options_dict)
 
-            print(create_pdf_options_dict)
+            #print(create_pdf_options_dict)
             cli.callback(**create_pdf_options_dict)
             st.success("PDF Generation Sent")
         # Maybe bug? I think one of these two are not working.
