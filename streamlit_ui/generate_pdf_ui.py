@@ -7,13 +7,14 @@ from create_pdf import cli
 
 def render_generate_pdf_tab():
     """Render the Generate PDFs tab"""
+    
     if "create_pdf_options" not in st.session_state:
         create_pdf_options = get_click_command_options(cli)
         st.session_state.create_pdf_options = create_pdf_options
     else:
         create_pdf_options = st.session_state.create_pdf_options
 
-    gen_pdf_expander = st.expander("Generate PDFs", expanded=False)
+    gen_pdf_expander = st.expander("Generate PDFs", expanded=True)
     card_size = gen_pdf_expander.pills(
         label="Card Size", options=[c.name for c in CardSize], default="STANDARD"
     )
@@ -22,7 +23,6 @@ def render_generate_pdf_tab():
     )
 
     gen_pdf_form = gen_pdf_expander.form(key="gen_pdf_form", enter_to_submit=False)
-
     gen_pdf_form.link_button(
         "create_pdf.py Documentation Page",
         "https://alan-cha.github.io/silhouette-card-maker/docs/create/",

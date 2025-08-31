@@ -1,6 +1,3 @@
-from streamlit_extras.pdf_viewer import (
-    pdf_viewer,
-)  # https://arnaudmiribel.github.io/streamlit-extras/extras/pdf_viewer/
 from streamlit_option_menu import (
     option_menu,
 )  # https://github.com/victoryhb/streamlit-option-menu

@@ -301,7 +301,7 @@ def _execute_plugin(
     """Execute the plugin with the provided options"""
     try:
         # Prepare command to run the plugin's fetch.py
-        cmd = ["python", fetch_file, deck_file_path, selected_format]
+        cmd = ["py", fetch_file, deck_file_path, selected_format]
 
         for opt in plugin_options:
             if "value" in opt and opt["value"]:
