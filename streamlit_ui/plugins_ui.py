@@ -61,7 +61,6 @@ def render_plugins_tab():
         with col2:
             st.subheader("Upload New Deck")
 
-            # Only show file uploader if we haven't just uploaded a file
             if not st.session_state.get("just_uploaded", False):
                 uploaded_file = st.file_uploader(
                     "Upload deck file",
@@ -87,7 +86,6 @@ def render_plugins_tab():
                         st.session_state["last_uploaded_file"] = uploaded_file.name
                         st.rerun()
             else:
-                # Show a message and button to allow new uploads
                 st.success(
                     f"Last uploaded: {st.session_state.get('last_uploaded_file', 'Unknown file')}"
                 )
@@ -97,10 +95,8 @@ def render_plugins_tab():
                     st.session_state["just_uploaded"] = False
                     st.rerun()
 
-        # Determine which file to use
         deck_file_path = None
         if selected_file and selected_file != "":
-            # Use selected file from dropdown
             deck_file_path = os.path.join(decklist_dir, selected_file)
 
         if deck_file_path:
@@ -325,7 +321,6 @@ def _execute_plugin(
                     cmd.extend([option_name, str(opt["value"])])
 
         with st.spinner(f"Fetching cards using {selected_plugin} plugin..."):
-            # Show the command being executed (for debugging)
             st.code(" ".join(cmd))
 
             # Run the fetch command
