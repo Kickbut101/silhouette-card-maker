@@ -55,28 +55,52 @@ def render_plugins_tab():
                 "Choose existing deck file",
                 [""] + existing_files,
                 help="Select a previously uploaded deck file",
+                key="deck_file_selector",
             )
 
         with col2:
             st.subheader("Upload New Deck")
-            uploaded_file = st.file_uploader(
-                "Upload deck file",
-                type=["txt", "ydk", "ydke"],
-                help="Upload a new deck file (.txt, .ydk, or .ydke)",
-            )
 
-            if uploaded_file is not None:
-                file_path = os.path.join(decklist_dir, uploaded_file.name)
-                with open(file_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-                st.success(f"File {uploaded_file.name} uploaded successfully!")
-                st.rerun()
+            # Only show file uploader if we haven't just uploaded a file
+            if not st.session_state.get("just_uploaded", False):
+                uploaded_file = st.file_uploader(
+                    "Upload deck file",
+                    type=["txt", "ydk", "ydke"],
+                    help="Upload a new deck file (.txt, .ydk, or .ydke)",
+                    key="file_uploader",
+                )
+
+                if uploaded_file is not None:
+                    st.info(f"Ready to upload: {uploaded_file.name}")
+
+                    if st.button("Upload File", type="secondary", key="upload_button"):
+                        file_path = os.path.join(decklist_dir, uploaded_file.name)
+                        with open(file_path, "wb") as f:
+                            f.write(uploaded_file.getbuffer())
+                        st.success(f"File {uploaded_file.name} uploaded successfully!")
+
+                        # Clear the file uploader and set upload flag
+                        if "file_uploader" in st.session_state:
+                            del st.session_state["file_uploader"]
+
+                        st.session_state["just_uploaded"] = True
+                        st.session_state["last_uploaded_file"] = uploaded_file.name
+                        st.rerun()
+            else:
+                # Show a message and button to allow new uploads
+                st.success(
+                    f"Last uploaded: {st.session_state.get('last_uploaded_file', 'Unknown file')}"
+                )
+                if st.button(
+                    "Upload Another File", type="secondary", key="upload_another"
+                ):
+                    st.session_state["just_uploaded"] = False
+                    st.rerun()
 
         # Determine which file to use
         deck_file_path = None
-        if uploaded_file is not None:
-            deck_file_path = os.path.join(decklist_dir, uploaded_file.name)
-        elif selected_file:
+        if selected_file and selected_file != "":
+            # Use selected file from dropdown
             deck_file_path = os.path.join(decklist_dir, selected_file)
 
         if deck_file_path:
@@ -87,14 +111,22 @@ def render_plugins_tab():
 
                 # Load deck formats
                 selected_format = _load_deck_formats(plugins_dir, selected_plugin)
-                
+
                 # Load plugin options
-                plugin_options = _load_plugin_options(plugins_dir, selected_plugin, fetch_file)
+                plugin_options = _load_plugin_options(
+                    plugins_dir, selected_plugin, fetch_file
+                )
 
                 # Generate Cards button
                 if st.button("Generate Cards", type="primary"):
                     if selected_format:
-                        _execute_plugin(fetch_file, deck_file_path, selected_format, plugin_options, selected_plugin)
+                        _execute_plugin(
+                            fetch_file,
+                            deck_file_path,
+                            selected_format,
+                            plugin_options,
+                            selected_plugin,
+                        )
                     else:
                         st.warning("Please select a deck format")
             else:
@@ -107,6 +139,7 @@ def _load_deck_formats(plugins_dir, selected_plugin):
     """Load deck formats for the selected plugin"""
     try:
         import sys
+
         plugin_path = os.path.join(plugins_dir, selected_plugin)
 
         if plugin_path not in sys.path:
@@ -146,6 +179,7 @@ def _load_plugin_options(plugins_dir, selected_plugin, fetch_file):
     plugin_options = []
     try:
         import sys
+
         plugin_path = os.path.join(plugins_dir, selected_plugin)
 
         if plugin_path not in sys.path:
@@ -265,7 +299,9 @@ def _render_option_input(opt):
         )
 
 
-def _execute_plugin(fetch_file, deck_file_path, selected_format, plugin_options, selected_plugin):
+def _execute_plugin(
+    fetch_file, deck_file_path, selected_format, plugin_options, selected_plugin
+):
     """Execute the plugin with the provided options"""
     try:
         # Prepare command to run the plugin's fetch.py
@@ -275,7 +311,9 @@ def _execute_plugin(fetch_file, deck_file_path, selected_format, plugin_options,
             if "value" in opt and opt["value"]:
                 option_name = f"--{opt['name']}"  # Keep underscores as-is
 
-                if isinstance(opt["type"], click.types.BoolParamType) and opt.get("is_flag", False):
+                if isinstance(opt["type"], click.types.BoolParamType) and opt.get(
+                    "is_flag", False
+                ):
                     if opt["value"]:
                         cmd.append(option_name)
                 elif opt.get("multiple", False) and isinstance(opt["value"], str):
@@ -291,7 +329,9 @@ def _execute_plugin(fetch_file, deck_file_path, selected_format, plugin_options,
             st.code(" ".join(cmd))
 
             # Run the fetch command
-            result = subprocess.run(cmd, capture_output=True, text=True, cwd=os.getcwd())
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, cwd=os.getcwd()
+            )
 
             if result.returncode == 0:
                 st.success("Cards fetched successfully!")
