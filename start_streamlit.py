@@ -8,6 +8,8 @@ from streamlit_option_menu import (
 import streamlit as st
 from utilities import reload_jsons
 
+# Import tab modules
+from streamlit_ui.plugins_ui import render_plugins_tab
 from streamlit_ui.generate_pdf_ui import render_generate_pdf_tab
 from streamlit_ui.offsets_ui import render_offsets_tab
 from streamlit_ui.settings_ui import render_settings_tab
@@ -24,8 +26,10 @@ st.set_page_config(
     },
 )
 
+
 def on_tab_change(key):
     pass
+
 
 st.markdown("# Silhouette Card Maker")
 if (
@@ -39,19 +43,23 @@ if (
 selected_tab = option_menu(
     None,
     [
+        "Run Plugin",
         "Generate PDFs",
         "Offsets",
         "Edit Settings/JSON Files",
         "MiscTesting",
     ],
-    icons=["suit-club-fill", "rulers", "gear", "bug"],
+    icons=["download", "suit-club-fill", "rulers", "gear", "bug"],
     on_change=on_tab_change,
     default_index=0,
     key="selected_tab",
     orientation="horizontal",
 )
 
-if selected_tab == "Generate PDFs":
+# Route to appropriate tab based on selection
+if selected_tab == "Run Plugin":
+    render_plugins_tab()
+elif selected_tab == "Generate PDFs":
     render_generate_pdf_tab()
 elif selected_tab == "Offsets":
     render_offsets_tab()
