@@ -793,7 +793,7 @@ def load_user_prefs():
 
     return None
 
-def load_saved_offset(path='data/offset_data.json') -> OffsetData:
+def load_saved_offset(path='calibration/data/offset_data.json') -> OffsetData:
     if os.path.exists(path):
         with open(path, 'r') as offset_file:
             try:
