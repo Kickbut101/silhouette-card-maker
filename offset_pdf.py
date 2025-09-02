@@ -13,7 +13,7 @@ default_output_pdf_path = os.path.join(output_directory, 'game.pdf')
 @click.option("-x", "--x_offset", type=int, help="The desired offset in the x-axis.")
 @click.option("-y", "--y_offset", type=int, help="The desired offset in the y-axis.")
 @click.option("-s", "--save", default=False, is_flag=True, help="Save the x and y offset values.")
-@click.option("--ppi", default=600, type=click.IntRange(min=0), show_default=True, help="Pixels per inch (PPI) when creating PDF.")
+@click.option("--ppi", default=300, type=click.IntRange(min=0), show_default=True, help="Pixels per inch (PPI) when creating PDF.")
 
 def offset_pdf(pdf_path, output_pdf_path, x_offset, y_offset, save, ppi):
     new_x_offset = 0
