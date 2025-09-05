@@ -53,9 +53,9 @@ def render_plugins_tab():
             st.subheader("Select Existing Deck")
             selected_file = st.selectbox(
                 "Choose existing deck file",
-                [""] + existing_files,
+                existing_files,
                 help="Select a previously uploaded deck file",
-                key="deck_file_selector",
+                key="deck_file_selector"
             )
 
         with col2:
@@ -155,6 +155,8 @@ def _load_deck_formats(plugins_dir, selected_plugin):
                     "Deck Format",
                     format_options,
                     help="Select the format of your deck file",
+                    index=0
+                    
                 )
             else:
                 return st.text_input(
