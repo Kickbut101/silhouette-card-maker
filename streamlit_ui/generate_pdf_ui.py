@@ -1,7 +1,7 @@
 import re
 import click
 import streamlit as st
-from utilities import CardSize, PaperSize, get_click_command_options, convert_click_options_to_dict, validate_gen_options
+from utilities import CardSize, PaperSize, get_click_command_options, convert_click_options_to_dict
 from create_pdf import cli
 
 
@@ -106,8 +106,6 @@ def render_generate_pdf_tab():
         if not gen_pdf_only_save:
             create_pdf_options_dict = convert_click_options_to_dict(create_pdf_options)
             del create_pdf_options_dict["version"]
-
-            create_pdf_options_dict = validate_gen_options(create_pdf_options_dict)
 
             st.success("PDF Generation Sent")
             cli.callback(**create_pdf_options_dict)

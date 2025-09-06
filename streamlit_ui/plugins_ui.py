@@ -240,10 +240,10 @@ def _render_option_input(opt):
             )
 
     elif isinstance(opt["type"], click.types.BoolParamType):
-        if opt.get("is_flag", False):
+        if opt.get("is_flag"):
             opt["value"] = st.checkbox(
                 label=opt["help"] or opt["name"],
-                value=opt.get("default", False),
+                value=opt.get("default"),
                 key=f"plugin_opt_{opt['name']}",
             )
 
@@ -310,7 +310,7 @@ def _execute_plugin(
                 option_name = f"--{opt['name']}"  # Keep underscores as-is
 
                 if isinstance(opt["type"], click.types.BoolParamType) and opt.get(
-                    "is_flag", False
+                    "is_flag"
                 ):
                     if opt["value"]:
                         cmd.append(option_name)

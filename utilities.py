@@ -27,6 +27,7 @@ HELP_DOCUMENTATION_URL = 'https://alan-cha.github.io/silhouette-card-maker/'
 # Plugin directory name to user-friendly name mapping
 PLUGIN_DISPLAY_NAMES = {
     "altered": "Altered",
+    "ashes": "Ashes",
     "digimon": "Digimon",
     "flesh_and_blood": "Flesh and Blood", 
     "grand_archive": "Grand Archive",
@@ -187,42 +188,6 @@ def reload_jsons():
     if offsets_data is not None:
         st.session_state.offsets_data = offsets_data
 
-def validate_gen_options(options_dict):
-    if options_dict['front_dir_path'] is None:
-        options_dict['front_dir_path'] = ""
-    if options_dict['back_dir_path'] is None:
-        options_dict['back_dir_path'] = ""
-    if options_dict['double_sided_dir_path'] is None:
-        options_dict['double_sided_dir_path'] = ""
-    if options_dict['output_path'] is None:
-        options_dict['output_path'] = ""
-    if options_dict['output_images'] is None:
-        options_dict['output_images'] = False
-    if options_dict['card_size'] is None:
-        options_dict['card_size'] = ""
-    if options_dict['paper_size'] is None:
-        options_dict['paper_size'] = ""
-    if options_dict['only_fronts'] is None:
-        options_dict['only_fronts'] = False
-    #if options_dict.get('crop'):
-    #    temp = options_dict['crop']
-    #    del options_dict['crop']
-    #    options_dict['crop_string'] = temp
-    #if options_dict['crop'] is None:
-    #    options_dict['crop'] = ""
-    if options_dict['extend_corners'] is None:
-        options_dict['extend_corners'] = 0
-    if options_dict['ppi'] is None:
-        options_dict['ppi'] = 300
-    if options_dict['quality'] is None:
-        options_dict['quality'] = 100
-    #if options_dict['skip_indices'] is None:
-    #    options_dict['skip_indices'] = []
-    if options_dict['load_offset'] is None:
-        options_dict['load_offset'] = False
-    if options_dict['name'] is None:
-        options_dict['name'] = ""
-    return options_dict
 
 def get_click_command_options(click_command):
     """
