@@ -1,8 +1,13 @@
+import sys
 from os import path
 from click import command, argument, Choice
 
-from deck_formats import DeckFormat, parse_deck
-from one_piece  import get_handle_card
+# Add parent directory to path to allow imports when run as a script
+sys.path.insert(0, path.join(path.dirname(__file__), '..', '..'))
+
+from plugins.one_piece.deck_formats import DeckFormat, parse_deck
+from plugins.one_piece.one_piece import get_handle_card
+from utilities import ensure_directory
 
 front_directory = path.join('game', 'front')
 
@@ -11,6 +16,7 @@ front_directory = path.join('game', 'front')
 @argument('format', type=Choice([t.value for t in DeckFormat], case_sensitive=False))
 
 def cli(deck_path: str, format: DeckFormat):
+    ensure_directory(front_directory)
     if not path.isfile(deck_path):
         print(f'{deck_path} is not a valid file.')
         return

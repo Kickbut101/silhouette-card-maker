@@ -31,11 +31,11 @@ Options:
   --help  Show this message and exit.
 ```
 
-## Format
+## Formats
 
 ### `dreamborn`
 
-Dreamborn format.
+[Dreamborn](https://dreamborn.ink) format.
 
 ```
 1 Elsa, Spirit of Winter
